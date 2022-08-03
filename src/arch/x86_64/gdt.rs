@@ -22,12 +22,13 @@ pub fn init() {
     // Hack of CPUID TLS: Self boot: Allocate a TSS on the stack and put cpu_id into it.
     // In this way, locks of the dynamic allocator can work.
     let temp_tss = TSS::new();
-    let cpu_id = CpuId::new().get_feature_info().unwrap().initial_local_apic_id() as u8;
-    let cpu_id_ptr = (&temp_tss as *const _ as usize + 28) as *mut u64;
-    unsafe { 
-        cpu_id_ptr.write(cpu_id as u64);
+    let cpu_id = CpuId::new().get_feature_info().unwrap().initial_local_apic_id() as u64;
+    //let cpu_id_ptr = (&temp_tss as *const _ as usize + 28) as *mut u64;
+    unsafe {
+        //cpu_id_ptr.write(cpu_id as u64);
         #[allow(const_item_mutation)]
         GsBase::MSR.write(&temp_tss as *const _ as u64);
+        asm!("mov gs:28, {}", in(reg) cpu_id);
     }
 
     // allocate stack for trap from user
@@ -40,8 +41,11 @@ pub fn init() {
 
     
     // Hack of CPUID TLS: put current core ID into reserved_2 in TaskStateSegment
-    let cpu_id_ptr = (tss as *const _ as usize + 28) as *mut u64;
-    unsafe { cpu_id_ptr.write(cpu_id as u64); }
+    unsafe {
+        asm!("mov gs:28, {}", in(reg) cpu_id);
+    }
+    //let cpu_id_ptr = (tss as *const _ as usize + 28) as *mut u64;
+    //unsafe { cpu_id_ptr.write(cpu_id as u64); }
     
 
     let (tss0, tss1) = match Descriptor::tss_segment(tss) {
