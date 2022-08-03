@@ -37,18 +37,6 @@ pub fn init() {
     tss.privilege_stack_table[0] = VirtAddr::new(trap_stack_top);
     let tss: &'static _ = Box::leak(tss);
 
-    /*
-    // Hack of CPUID TLS: put current core ID into reserved_2 in TaskStateSegment
-    unsafe {
-        asm!(
-            "mov [{} + 28], {}",
-            in(reg) tss as *const _ as usize,
-            in(reg) cpu_id,
-        );
-    }
-    */
-    
-
     let (tss0, tss1) = match Descriptor::tss_segment(tss) {
         Descriptor::SystemSegment(tss0, tss1) => (tss0, tss1),
         _ => unreachable!(),
