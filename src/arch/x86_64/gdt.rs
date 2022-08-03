@@ -23,9 +23,7 @@ pub fn init() {
     // In this way, locks of the dynamic allocator can work.
     let temp_tss = TSS::new();
     let cpu_id = CpuId::new().get_feature_info().unwrap().initial_local_apic_id() as u64;
-    //let cpu_id_ptr = (&temp_tss as *const _ as usize + 28) as *mut u64;
     unsafe {
-        //cpu_id_ptr.write(cpu_id as u64);
         #[allow(const_item_mutation)]
         GsBase::MSR.write(&temp_tss as *const _ as u64);
         asm!("mov gs:28, {}", in(reg) cpu_id);
@@ -39,7 +37,7 @@ pub fn init() {
     tss.privilege_stack_table[0] = VirtAddr::new(trap_stack_top);
     let tss: &'static _ = Box::leak(tss);
 
-    
+    /*
     // Hack of CPUID TLS: put current core ID into reserved_2 in TaskStateSegment
     unsafe {
         asm!(
@@ -48,8 +46,7 @@ pub fn init() {
             in(reg) cpu_id,
         );
     }
-    //let cpu_id_ptr = (tss as *const _ as usize + 28) as *mut u64;
-    //unsafe { cpu_id_ptr.write(cpu_id as u64); }
+    */
     
 
     let (tss0, tss1) = match Descriptor::tss_segment(tss) {
@@ -89,6 +86,8 @@ pub fn init() {
         // store address of TSS to kernel_gsbase
         #[allow(const_item_mutation)]
         GsBase::MSR.write(tss as *const _ as u64);
+        // Hack of CPUID TLS: put current core ID into reserved_2 in TaskStateSegment
+        asm!("mov gs:28, {}", in(reg) cpu_id);
 
         Star::write_raw(
             SegmentSelector::new(entry_count as u16 + 4, PrivilegeLevel::Ring3).0,
