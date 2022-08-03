@@ -42,7 +42,11 @@ pub fn init() {
     
     // Hack of CPUID TLS: put current core ID into reserved_2 in TaskStateSegment
     unsafe {
-        asm!("mov gs:28, {}", in(reg) cpu_id);
+        asm!(
+            "mov [{} + 28], {}",
+            in(reg) tss as *const _ as usize,
+            in(reg) cpu_id,
+        );
     }
     //let cpu_id_ptr = (tss as *const _ as usize + 28) as *mut u64;
     //unsafe { cpu_id_ptr.write(cpu_id as u64); }
