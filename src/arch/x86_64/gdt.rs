@@ -19,6 +19,15 @@ type TSS = super::ioport::TSSWithPortBitmap;
 
 /// Init TSS & GDT.
 pub fn init() {
+    // Self boot: Allocate a TSS on the stack and put cpu_id into it.
+    // In this way, locks of the dynamic allocator can work.
+    let temp_tss = TSS::new();
+    let cpu_id = CpuId::new().get_feature_info().unwrap().initial_local_apic_id() as u8;
+    let cpu_id_ptr = (&temp_tss as *const _ as usize + 28) as *mut u64;
+    unsafe { cpu_id_ptr.write(cpu_id as u64); }
+    #[allow(const_item_mutation)]
+    GsBase::MSR.write(&temp_tss as *const _ as u64);
+
     // allocate stack for trap from user
     // set the stack top to TSS
     // so that when trap from ring3 to ring0, CPU can switch stack correctly
@@ -27,12 +36,11 @@ pub fn init() {
     tss.privilege_stack_table[0] = VirtAddr::new(trap_stack_top);
     let tss: &'static _ = Box::leak(tss);
 
-    /*
+    
     // Hack: put current core ID into reserved_2 in TaskStateSegment
     let cpu_id_ptr = (tss as *const _ as usize + 28) as *mut u64;
-    let cpu_id = CpuId::new().get_feature_info().unwrap().initial_local_apic_id() as u8;
     unsafe { cpu_id_ptr.write(cpu_id as u64); }
-    */
+    
 
     let (tss0, tss1) = match Descriptor::tss_segment(tss) {
         Descriptor::SystemSegment(tss0, tss1) => (tss0, tss1),
